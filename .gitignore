@@ -28,6 +28,7 @@ share/python-wheels/
 MANIFEST
 
 data/*
+*.pt
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

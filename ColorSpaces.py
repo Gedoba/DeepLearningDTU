@@ -21,7 +21,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 use_colab = None
 
 COLOR_SPACE = 'HSL' # Lab or HSL
-
+PATH = "./models/model.pt"
 
 # %%
 path = r"./data/part3"
