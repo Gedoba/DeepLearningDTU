@@ -17,7 +17,7 @@ class AverageMeter:
         self.avg = self.sum / self.count
 
 
-def create_loss_meters() -> dict[str, AverageMeter]:
+def create_loss_meters():
     loss_D_fake = AverageMeter()
     loss_D_real = AverageMeter()
     loss_D = AverageMeter()
@@ -39,7 +39,7 @@ def update_losses(model, loss_meter_dict, count):
         loss_meter.update(loss.item(), count=count)
 
 
-def save_model(path, model: MainModel, epoch, loss_meter_dict: dict[str, AverageMeter]):
+def save_model(path, model, epoch, loss_meter_dict):
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
