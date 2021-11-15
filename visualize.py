@@ -63,3 +63,16 @@ def visualize(model, data, color_space, save=True):
     plt.show()
     if save:
         fig.savefig(f"colorization_{time.time()}.png")
+
+
+def plot_metrics(iterations, loss_meter_dict):
+    fig = plt.figure(figsize=(12,4))
+    plt.subplot(1, 2, 1)
+    plt.plot(iterations, loss_meter_dict["loss_D_fake"].values, label='loss_D_fake')
+    plt.plot(iterations, loss_meter_dict["loss_D_real"].values, label='loss_D_real')
+    plt.plot(iterations, loss_meter_dict["loss_D"].values, label='loss_D')
+    plt.plot(iterations, loss_meter_dict["loss_G_GAN"].values, label='loss_G_GAN')
+    plt.plot(iterations, loss_meter_dict["loss_G_L1"].values, label='loss_G_L1')
+    plt.plot(iterations, loss_meter_dict["loss_G"].values, label='loss_G')
+    plt.legend()
+    plt.show()

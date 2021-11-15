@@ -1,12 +1,13 @@
 from tqdm.notebook import tqdm
 import torch
-from model import MainModel
-from visualize import visualize
+from visualize import visualize, plot_metrics
+from IPython.display import clear_output, display
 
 
 class AverageMeter:
     def __init__(self):
         self.reset()
+        self.values = []
 
     def reset(self):
         self.count, self.avg, self.sum = [0.] * 3
@@ -15,6 +16,7 @@ class AverageMeter:
         self.count += count
         self.sum += count * val
         self.avg = self.sum / self.count
+        self.values.append(self.avg)
 
 
 def create_loss_meters():
@@ -61,34 +63,37 @@ def load_model(path, model):
     return model, loss_meter_dict
 
 
-def log_results(loss_meter_dict):
-    for loss_name, loss_meter in loss_meter_dict.items():
-        print(f"{loss_name}: {loss_meter.avg:.5f}")
-
 
 def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200, loss_meter_dict=None, save_path=None):
     # getting a batch for visualizing the model output after fixed intrvals
     vis_data = next(iter(val_dl))
     starting_epoch = model.epoch
+    iters = []
+    iter_count = 0
     for e in range(epochs):
         # function returing a dictionary of objects to
         # log the losses of the complete network
         loss_meter_dict = create_loss_meters() if loss_meter_dict is None else loss_meter_dict
         i = 0
-        for data in tqdm(train_dl):
+        pbar = tqdm(train_dl, display=False)
+        for data in pbar:
             model.setup_input(data)
             model.optimize()
             # function updating the log objects
             update_losses(model, loss_meter_dict,
                           count=data['known_channel'].size(0))
             i += 1
+            iter_count += 1
+            iters.append(iter_count)
             if i % display_every == 0:
                 print(f"\nEpoch {model.epoch + 1}/{epochs + starting_epoch}")
                 print(f"Iteration {i}/{len(train_dl)}")
                 # function to print out the losses
-                log_results(loss_meter_dict)
+                display(pbar.container)
+                plot_metrics(iters, loss_meter_dict)
                 # function displaying the model's outputs
                 visualize(model, vis_data, color_space, save=False)
+                clear_output(wait=True)
         model.epoch += 1
         if save_path is not None:
             save_model(save_path, model, model.epoch, loss_meter_dict)
