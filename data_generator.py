@@ -1,6 +1,6 @@
 import numpy as np
 from PIL import Image
-from skimage.color import rgb2lab
+from skimage.color import rgb2lab, rgb2ycbcr
 import cv2
 import torch
 from torchvision import transforms
@@ -43,6 +43,12 @@ class ColorizationDataset(Dataset):
             s =  (img_hsl[[2], ...] * 2.) / 255. - 1.
             known_channel = l # Between -1 and 1
             unknown_channels = torch.cat([h, s]) # Between -1 and 1
+        elif self.color_space == "YCbCr":
+            img_lab = rgb2ycbcr(img).astype("float32")
+            img_lab = transforms.ToTensor()(img_lab)
+            known_channel = ((img_lab[[0], ...] - 16.)  *2.)/ 219. - 1. # Between -1 and 1
+            unknown_channels = (img_lab[[1, 2], ...] -16.) / 112. - 1. # Between -1 and 1
+
         return {'known_channel': known_channel, 'unknown_channels': unknown_channels}
 
     

@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.color import lab2rgb
+from skimage.color import lab2rgb, ycbcr2rgb
 import cv2
 import torch
 
@@ -35,6 +35,15 @@ def to_rgb(known_channel, unknown_channels, color_space):
             img_rgb = cv2.cvtColor(np.uint8(img), cv2.COLOR_HLS2RGB)
             # print('rgb')
             # print(img_rgb)
+            rgb_imgs.append(img_rgb)
+        return np.stack(rgb_imgs, axis=0)
+    elif color_space == 'YCbCr':
+        Y = ((known_channel + 1.) * 219) /2. + 16.
+        CbCr = (unknown_channels + 1) * 112. + 16.
+        YCbCr = torch.cat([Y, CbCr], dim=1).permute(0, 2, 3, 1).cpu().numpy()
+        rgb_imgs = []
+        for img in YCbCr:
+            img_rgb = ycbcr2rgb(img)
             rgb_imgs.append(img_rgb)
         return np.stack(rgb_imgs, axis=0)
     
