@@ -73,7 +73,7 @@ def visualize(model, data, color_space, save=True):
         ax.axis("off")
     plt.show()
     if save:
-        fig.savefig(f"colorization_{time.time()}.png")
+        fig.savefig(f"colorization_{time.time()}_{color_space}.png")
 
 
 def plot_metrics(iterations, loss_meter_dict):
