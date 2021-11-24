@@ -2,7 +2,9 @@ from tqdm.notebook import tqdm
 import torch
 from visualize import visualize, plot_metrics
 from IPython.display import clear_output, display
-
+from fastai.vision.learner import create_body
+from torchvision.models.resnet import resnet18
+from fastai.vision.models.unet import DynamicUnet
 
 class AverageMeter:
     def __init__(self):
@@ -41,6 +43,10 @@ def update_losses(model, loss_meter_dict, count):
         loss_meter.update(loss.item(), count=count)
 
 
+def log_results(loss_meter_dict):
+    for loss_name, loss_meter in loss_meter_dict.items():
+        print(f"{loss_name}: {loss_meter.avg:.5f}")
+
 def save_model(path, model, epoch, loss_meter_dict):
     torch.save({
         'epoch': epoch,
@@ -50,6 +56,12 @@ def save_model(path, model, epoch, loss_meter_dict):
         'losses': loss_meter_dict
     }, path)
 
+
+def build_res_unet(n_input=1, n_output=2, size=256):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    body = create_body(resnet18, pretrained=True, n_in=n_input, cut=-2)
+    net_G = DynamicUnet(body, n_output, (size, size)).to(device)
+    return net_G
 
 def load_model(path, model):
     checkpoint = torch.load(path)
@@ -75,7 +87,7 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
         # log the losses of the complete network
         loss_meter_dict = create_loss_meters() if loss_meter_dict is None else loss_meter_dict
         i = 0
-        pbar = tqdm(train_dl, display=False)
+        pbar = tqdm(train_dl)
         for data in pbar:
             model.setup_input(data)
             model.optimize()
@@ -97,3 +109,20 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
         model.epoch += 1
         if save_path is not None:
             save_model(save_path, model, model.epoch, loss_meter_dict)
+
+
+def pretrain_generator(net_G, train_dl, opt, criterion, epochs, device):
+    for e in range(epochs):
+        loss_meter = AverageMeter()
+        for data in tqdm(train_dl):
+            known_channel, unknown_channels = data['known_channel'].to(device), data['unknown_channels'].to(device)
+            preds = net_G(known_channel)
+            loss = criterion(preds, unknown_channels)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            
+            loss_meter.update(loss.item(), known_channel.size(0))
+            
+        print(f"Epoch {e + 1}/{epochs}")
+        print(f"L1 Loss: {loss_meter.avg:.5f}")

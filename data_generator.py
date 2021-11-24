@@ -55,7 +55,7 @@ class ColorizationDataset(Dataset):
     def __len__(self):
         return len(self.paths)
 
-def make_dataloaders(batch_size=16, n_workers=0, pin_memory=True, **kwargs): # A handy function to make our dataloaders
+def make_dataloaders(batch_size=8, n_workers=0, pin_memory=True, **kwargs): # A handy function to make our dataloaders
     dataset = ColorizationDataset(**kwargs)
     dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=n_workers,
                             pin_memory=pin_memory)

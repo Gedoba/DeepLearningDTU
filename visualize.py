@@ -38,8 +38,10 @@ def to_rgb(known_channel, unknown_channels, color_space):
             rgb_imgs.append(img_rgb)
         return np.stack(rgb_imgs, axis=0)
     elif color_space == 'YCbCr':
-        Y = ((known_channel + 1.) * 219) /2. + 16.
-        CbCr = (unknown_channels + 1) * 112. + 16.
+        Y = ((known_channel + 1.) * 219.) /2. + 16.
+        print(torch.max(Y))
+        CbCr = ((unknown_channels + 1.) * 112.) + 16.
+        print(torch.max(CbCr))
         YCbCr = torch.cat([Y, CbCr], dim=1).permute(0, 2, 3, 1).cpu().numpy()
         rgb_imgs = []
         for img in YCbCr:
