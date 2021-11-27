@@ -5,7 +5,7 @@ from IPython.display import clear_output, display
 from fastai.vision.learner import create_body
 from torchvision.models.resnet import resnet18
 from fastai.vision.models.unet import DynamicUnet
-
+import numpy as np
 class AverageMeter:
     def __init__(self):
         self.reset()
@@ -47,9 +47,9 @@ def log_results(loss_meter_dict):
     for loss_name, loss_meter in loss_meter_dict.items():
         print(f"{loss_name}: {loss_meter.avg:.5f}")
 
-def save_model(path, model, epoch, loss_meter_dict):
+def save_model(path, model, loss_meter_dict):
     torch.save({
-        'epoch': epoch,
+        'epoch': model.epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict_G': model.opt_G.state_dict(),
         'optimizer_state_dict_D': model.opt_D.state_dict(),
@@ -82,6 +82,7 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
     starting_epoch = model.epoch
     iters = []
     iter_count = 0
+    early_stopping = EarlyStopping(verbose=True)
     for e in range(epochs):
         # function returing a dictionary of objects to
         # log the losses of the complete network
@@ -107,8 +108,11 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
                 visualize(model, vis_data, color_space, save=False)
                 clear_output(wait=True)
         model.epoch += 1
-        if save_path is not None:
-            save_model(save_path, model, model.epoch, loss_meter_dict)
+        early_stopping(model, loss_meter_dict)
+        
+        if early_stopping.early_stop:
+            print("Early stopping")
+            break
 
 
 def pretrain_generator(net_G, train_dl, opt, criterion, epochs, device):
@@ -126,3 +130,55 @@ def pretrain_generator(net_G, train_dl, opt, criterion, epochs, device):
             
         print(f"Epoch {e + 1}/{epochs}")
         print(f"L1 Loss: {loss_meter.avg:.5f}")
+
+
+
+class EarlyStopping:
+    """Early stops the training if validation loss doesn't improve after a given patience."""
+    def __init__(self, path = None, patience=7, verbose=False, delta=0, trace_func=print):
+        """
+        Args:
+            patience (int): How long to wait after last time validation loss improved.
+                            Default: 7
+            verbose (bool): If True, prints a message for each validation loss improvement. 
+                            Default: False
+            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
+                            Default: 0
+            path (str): Path for the checkpoint to be saved to.
+                            Default: 'checkpoint.pt'
+            trace_func (function): trace print function.
+                            Default: print            
+        """
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_loss_min = np.Inf
+        self.delta = delta
+        self.path = path
+        self.trace_func = trace_func
+    def __call__(self, model, loss_meter_dict):
+        val_loss = loss_meter_dict['loss_G'].avg
+        score = -val_loss
+
+        if self.best_score is None:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model, loss_meter_dict)
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            self.trace_func(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model, loss_meter_dict)
+            self.counter = 0
+
+    def save_checkpoint(self, val_loss, model, loss_meter_dict):
+        '''Saves model when validation loss decrease.'''
+        if self.verbose:
+            self.trace_func(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).{"  Saving model ..." if self.path is not None else ""}')
+        if self.path is not None:
+            save_model(self.path, model, loss_meter_dict)
+        self.val_loss_min = val_loss
