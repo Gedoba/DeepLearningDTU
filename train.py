@@ -3,7 +3,8 @@ import torch
 from visualize import visualize, plot_metrics
 from IPython.display import clear_output, display
 from fastai.vision.learner import create_body
-from torchvision.models.resnet import resnet18
+from torchvision.models.resnet import resnet18, resnet34
+from torchvision.models.vgg import vgg16_bn
 from fastai.vision.models.unet import DynamicUnet
 import numpy as np
 class AverageMeter:
@@ -57,9 +58,17 @@ def save_model(path, model, loss_meter_dict):
     }, path)
 
 
-def build_res_unet(n_input=1, n_output=2, size=256):
+def build_backbone_unet(n_input=1, n_output=2, size=256, backbone_name='resnet18'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    body = create_body(resnet18, pretrained=True, n_in=n_input, cut=-2)
+    backbone = resnet18
+    if backbone_name == 'resnet18':
+        backbone = resnet18
+    elif backbone_name == 'resnet34':
+        backbone = resnet34
+    elif backbone_name == 'vgg16_bn':
+        backbone = vgg16_bn
+
+    body = create_body(backbone, pretrained=True, n_in=n_input, cut=-2) #backbones: resnet18, resnet34, vgg16_bn
     net_G = DynamicUnet(body, n_output, (size, size)).to(device)
     return net_G
 
