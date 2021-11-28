@@ -90,7 +90,7 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
     vis_data = next(iter(val_dl))
     starting_epoch = model.epoch
     iters = [] if starting_epoch == 0 else list(range(1, starting_epoch * len(train_dl) + 1))
-    iter_count = 0
+    iter_count = 0 if starting_epoch == 0 else starting_epoch * len(train_dl) - 1
     early_stopping = EarlyStopping(path = save_path, verbose=True)
     for e in range(epochs):
         # function returing a dictionary of objects to
