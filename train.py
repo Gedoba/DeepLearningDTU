@@ -159,7 +159,7 @@ class EarlyStopping:
         self.path = path
         self.trace_func = trace_func
     def __call__(self, model, loss_meter_dict):
-        val_loss = loss_meter_dict['loss_G_GAN'].avg
+        val_loss = loss_meter_dict['loss_G'].avg
         score = -val_loss
 
         if self.best_score is None:
