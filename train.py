@@ -82,7 +82,7 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
     starting_epoch = model.epoch
     iters = []
     iter_count = 0
-    early_stopping = EarlyStopping(verbose=True)
+    early_stopping = EarlyStopping(path = save_path, verbose=True)
     for e in range(epochs):
         # function returing a dictionary of objects to
         # log the losses of the complete network
