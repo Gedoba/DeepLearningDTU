@@ -93,7 +93,7 @@ class MainModel(nn.Module):
         # elif L1LossType == 'HuberLoss':
             # self.L1criterion = nn.HuberLoss()
         elif L1LossType == 'SmoothL1Loss':
-            self.SmoothL1Loss = nn.SmoothL1Loss()
+            self.L1criterion = nn.SmoothL1Loss()
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lambda_L1 = lambda_L1
@@ -105,7 +105,6 @@ class MainModel(nn.Module):
             self.net_G = net_G.to(self.device)
         self.net_D = init_model(PatchDiscriminator(input_c=3, n_down=3, num_filters=64), self.device)
         self.GANcriterion = GANLoss(gan_mode=ganloss).to(self.device)
-        self.L1criterion = nn.L1Loss()
         self.opt_G = optim.Adam(self.net_G.parameters(), lr=lr_G, betas=(beta1, beta2))
         self.opt_D = optim.Adam(self.net_D.parameters(), lr=lr_D, betas=(beta1, beta2))
     
