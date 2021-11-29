@@ -47,7 +47,7 @@ def update_losses(model, loss_meter_dict, count):
 def update_val_losses(val_loss_dict, iter_loss_dict, count):
     for loss_name, loss_meter in val_loss_dict.items():
         loss = iter_loss_dict[loss_name]
-        loss_meter.update(loss, count)
+        loss_meter.update(loss.item(), count)
 
 
 def log_results(loss_meter_dict):
