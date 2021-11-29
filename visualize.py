@@ -76,9 +76,13 @@ def visualize(model, data, color_space, save=True):
         fig.savefig(f"colorization_{time.time()}_{color_space}.png")
 
 
-def plot_metrics(iterations, loss_meter_dict):
+def plot_metrics(iterations, loss_meter_dict, is_val=False):
+    title = "Training Loss"
+    if is_val:
+        title = "Validation Loss"
     fig = plt.figure(figsize=(12,4))
     plt.subplot(1, 2, 1)
+    plt.title(title)
     plt.plot(iterations, loss_meter_dict["loss_D_fake"].values, label='loss_D_fake')
     plt.plot(iterations, loss_meter_dict["loss_D_real"].values, label='loss_D_real')
     plt.plot(iterations, loss_meter_dict["loss_D"].values, label='loss_D')

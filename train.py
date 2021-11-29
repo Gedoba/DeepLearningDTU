@@ -44,6 +44,12 @@ def update_losses(model, loss_meter_dict, count):
         loss_meter.update(loss.item(), count=count)
 
 
+def update_val_losses(val_loss_dict, iter_loss_dict, count):
+    for loss_name, loss_meter in val_loss_dict.items():
+        loss = iter_loss_dict[loss_name]
+        loss_meter.update(loss, count)
+
+
 def log_results(loss_meter_dict):
     for loss_name, loss_meter in loss_meter_dict.items():
         print(f"{loss_name}: {loss_meter.avg:.5f}")
@@ -85,7 +91,9 @@ def load_model(path, model):
 
 
 
-def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200, loss_meter_dict=None, save_path=None):
+
+
+def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200, loss_meter_dict=None, save_path=None, val_loss_meter_dict=None):
     # getting a batch for visualizing the model output after fixed intrvals
     vis_data = next(iter(val_dl))
     starting_epoch = model.epoch
@@ -97,6 +105,7 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
         # log the losses of the complete network
         loss_meter_dict = create_loss_meters() if loss_meter_dict is None else loss_meter_dict
         i = 0
+        model.train()
         pbar = tqdm(train_dl)
         for data in pbar:
             model.setup_input(data)
@@ -116,8 +125,28 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
                 # function displaying the model's outputs
                 visualize(model, vis_data, color_space, save=False)
                 clear_output(wait=True)
+
+        model.eval()
+        val_loss_meter_dict = create_loss_meters() if val_loss_meter_dict is None else val_loss_meter_dict
+        val_iter_loss_meter_dict = {}
+        val_batches = 0
+        for val_data in val_dl:
+            model.setup_input(val_data)
+            tmp_losses = model.model_eval()
+            for loss_name, loss_meter in tmp_losses.items():
+                if loss_name not in val_iter_loss_meter_dict:
+                    val_iter_loss_meter_dict[loss_name] = 0
+                val_iter_loss_meter_dict[loss_name] += loss_meter / val_data['known_channel'].size(0)
+            val_batches += 1
+
+        update_val_losses(val_loss_meter_dict, val_iter_loss_meter_dict, val_batches)
+        val_epochs = list(range(1, starting_epoch + e + 2))
+        plot_metrics(val_epochs, val_loss_meter_dict, True)
+
+        model.train()
+
         model.epoch += 1
-        early_stopping(model, loss_meter_dict)
+        early_stopping(model, val_loss_meter_dict)
         
         if early_stopping.early_stop:
             print("Early stopping")
@@ -144,11 +173,11 @@ def pretrain_generator(net_G, train_dl, opt, criterion, epochs, device):
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, path = None, patience=7, verbose=False, delta=0, trace_func=print):
+    def __init__(self, path = None, patience=5, verbose=False, delta=0, trace_func=print):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
-                            Default: 7
+                            Default: 5
             verbose (bool): If True, prints a message for each validation loss improvement. 
                             Default: False
             delta (float): Minimum change in the monitored quantity to qualify as an improvement.

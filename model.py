@@ -119,6 +119,27 @@ class MainModel(nn.Module):
         
     def forward(self):
         self.fake_color = self.net_G(self.known_channel)
+
+    def model_eval(self):
+        fake_image = torch.cat([self.known_channel, self.fake_color], dim=1)
+        fake_preds = self.net_D(fake_image.detach())
+        loss_D_fake = self.GANcriterion(fake_preds, False)
+        real_image = torch.cat([self.known_channel, self.unknown_channels], dim=1)
+        real_preds = self.net_D(real_image)
+        loss_D_real = self.GANcriterion(real_preds, True)
+        loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
+        loss_G_GAN = self.GANcriterion(fake_preds, True)
+        loss_G_L1 = self.L1criterion(self.fake_color, self.unknown_channels) * self.lambda_L1
+        loss_G = self.loss_G_GAN + self.loss_G_L1
+
+        return {'loss_D_fake': loss_D_fake,
+        'loss_D_real': loss_D_real,
+        'loss_D': loss_D,
+        'loss_G_GAN': loss_G_GAN,
+        'loss_G_L1': loss_G_L1,
+        'loss_G': loss_G}
+
+
     
     def backward_D(self):
         fake_image = torch.cat([self.known_channel, self.fake_color], dim=1)
