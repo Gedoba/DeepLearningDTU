@@ -54,13 +54,14 @@ def log_results(loss_meter_dict):
     for loss_name, loss_meter in loss_meter_dict.items():
         print(f"{loss_name}: {loss_meter.avg:.5f}")
 
-def save_model(path, model, loss_meter_dict):
+def save_model(path, model, loss_meter_dict, train_loss_meter_dict):
     torch.save({
         'epoch': model.epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict_G': model.opt_G.state_dict(),
         'optimizer_state_dict_D': model.opt_D.state_dict(),
-        'losses': loss_meter_dict
+        'losses': loss_meter_dict,
+        'train_losses': train_loss_meter_dict
     }, path)
 
 
@@ -87,7 +88,8 @@ def load_model(path, model):
     model.epoch = epoch
     print(model.epoch)
     loss_meter_dict = checkpoint['losses']
-    return model, loss_meter_dict
+    train_loss_meter_dict = checkpoint['train_losses']
+    return model, loss_meter_dict, train_loss_meter_dict
 
 
 
@@ -146,7 +148,7 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
         model.train()
 
         model.epoch += 1
-        early_stopping(model, val_loss_meter_dict)
+        early_stopping(model, val_loss_meter_dict, loss_meter_dict)
         
         if early_stopping.early_stop:
             print("Early stopping")
@@ -196,13 +198,13 @@ class EarlyStopping:
         self.delta = delta
         self.path = path
         self.trace_func = trace_func
-    def __call__(self, model, loss_meter_dict):
+    def __call__(self, model, loss_meter_dict, train_loss_meter_dict):
         val_loss = loss_meter_dict['loss_G'].avg
         score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, loss_meter_dict)
+            self.save_checkpoint(val_loss, model, loss_meter_dict, train_loss_meter_dict)
         elif score < self.best_score + self.delta:
             self.counter += 1
             self.trace_func(f'EarlyStopping counter: {self.counter} out of {self.patience}')
@@ -210,13 +212,13 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, loss_meter_dict)
+            self.save_checkpoint(val_loss, model, loss_meter_dict, train_loss_meter_dict)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, model, loss_meter_dict):
+    def save_checkpoint(self, val_loss, model, loss_meter_dict, train_loss_meter_dict):
         '''Saves model when validation loss decrease.'''
         if self.verbose:
             self.trace_func(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).{"  Saving model ..." if self.path is not None else ""}')
         if self.path is not None:
-            save_model(self.path, model, loss_meter_dict)
+            save_model(self.path, model, loss_meter_dict, train_loss_meter_dict)
         self.val_loss_min = val_loss
