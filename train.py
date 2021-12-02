@@ -148,7 +148,7 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
 
         update_val_losses(val_loss_meter_dict, val_iter_loss_meter_dict, val_batches)
         val_epochs = list(range(1, starting_epoch + e + 2))
-        plot_metrics(val_epochs, val_loss_meter_dict, True)
+        plot_metrics(val_epochs, val_loss_meter_dict, "Validation Loss")
 
         model.train()
 

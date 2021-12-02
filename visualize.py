@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 from skimage.color import lab2rgb, ycbcr2rgb
 import cv2
 import torch
-
+from copy import deepcopy
+from torchvision import transforms
+from PIL import Image
+from data_generator import make_dataloaders
 
 def to_rgb(known_channel, unknown_channels, color_space):
     """
@@ -48,8 +51,17 @@ def to_rgb(known_channel, unknown_channels, color_space):
             img_rgb = ycbcr2rgb(img)
             rgb_imgs.append(img_rgb)
         return np.stack(rgb_imgs, axis=0)
+
+
+def resize_np_array_image(img, height, width, grey_scale = False):
+    if height is not None and width is not None:
+        if grey_scale: # then img is Tensor not ndarray
+            img = img.numpy()
+        img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+    return img
+
     
-def visualize(model, data, color_space, save=True):
+def visualize(model, data, color_space, save=True, width = None, height = None):
     model.net_G.eval()
     with torch.no_grad():
         model.setup_input(data)
@@ -61,25 +73,28 @@ def visualize(model, data, color_space, save=True):
     fake_imgs = to_rgb(known_channel, fake_color, color_space)
     real_imgs = to_rgb(known_channel, real_color, color_space)
     fig = plt.figure(figsize=(15, 8))
-    for i in range(5):
+    for i in range(known_channel.size(0)):
         ax = plt.subplot(3, 5, i + 1)
-        ax.imshow(known_channel[i][0].cpu(), cmap='gray')
+        gray_img = known_channel[i][0].cpu()
+        gray_img = resize_np_array_image(gray_img, height, width, True)
+        ax.imshow(gray_img, cmap='gray')
         ax.axis("off")
         ax = plt.subplot(3, 5, i + 1 + 5)
-        ax.imshow(fake_imgs[i])
+        fake_img = fake_imgs[i]
+        fake_img = resize_np_array_image(fake_img, height, width)
+        ax.imshow(fake_img)
         ax.axis("off")
         ax = plt.subplot(3, 5, i + 1 + 10)
-        ax.imshow(real_imgs[i])
+        real_img = real_imgs[i]
+        real_img = resize_np_array_image(real_img, height, width)
+        ax.imshow(real_img)
         ax.axis("off")
     plt.show()
     if save:
         fig.savefig(f"colorization_{time.time()}_{color_space}.png")
 
 
-def plot_metrics(iterations, loss_meter_dict, is_val=False):
-    title = "Training Loss"
-    if is_val:
-        title = "Validation Loss"
+def plot_metrics(iterations, loss_meter_dict, title = "Training Loss", save_path = None):
     fig = plt.figure(figsize=(12,4))
     plt.subplot(1, 2, 1)
     plt.title(title)
@@ -91,3 +106,36 @@ def plot_metrics(iterations, loss_meter_dict, is_val=False):
     plt.plot(iterations, loss_meter_dict["loss_G"].values, label='loss_G')
     plt.legend()
     plt.show()
+    if save_path is not None:
+        fig.savefig(save_path)
+
+
+def get_plot_save_path(id, path):
+    return None if path is None else f"{path}_{id}.png"
+
+
+def plot_all_metrics(loss_meter_dict, train_loss_meter_dict, path = None):
+    epochs_count = len(loss_meter_dict['loss_G_GAN'].values)
+    iters_count = len(train_loss_meter_dict['loss_G_GAN'].values)
+    plot_metrics(range(1, epochs_count + 1), loss_meter_dict, f"Validation loss (1-{epochs_count} epochs)", get_plot_save_path("val_loss", path))
+    plot_metrics(range(1, iters_count + 1), train_loss_meter_dict, f"Training loss (1-{epochs_count} epochs)", get_plot_save_path("train_loss", path))
+
+    iters_per_epoch = int(iters_count / epochs_count)
+
+    copied_train_loss_meter_dict = deepcopy(train_loss_meter_dict)
+    for loss_name, loss_metric in copied_train_loss_meter_dict.items():
+        copied_train_loss_meter_dict[loss_name].values = loss_metric.values[iters_per_epoch:]
+
+    plot_metrics(range(1, iters_count - iters_per_epoch + 1), copied_train_loss_meter_dict, f"Training loss (2-{epochs_count} epochs)", get_plot_save_path("train_loss_trimmed", path))
+
+
+def visualize_test_photo(model, path, color_space):
+    test_photo_path = path
+    test_paths = [test_photo_path]
+
+    test_img = Image.open(test_photo_path)
+    width, height = test_img.size
+
+    test_dl = make_dataloaders(batch_size=1, paths=test_paths, split='val', color_space=color_space)
+    data = next(iter(test_dl))
+    visualize(model, data, color_space, False, width, height)
