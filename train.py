@@ -87,8 +87,10 @@ def load_model(path, model):
     epoch = checkpoint['epoch']
     model.epoch = epoch
     print(model.epoch)
+    train_loss_meter_dict = None
     loss_meter_dict = checkpoint['losses']
-    train_loss_meter_dict = checkpoint['train_losses']
+    if 'train_losses' in checkpoint:
+        train_loss_meter_dict = checkpoint['train_losses']
     return model, loss_meter_dict, train_loss_meter_dict
 
 
@@ -138,8 +140,11 @@ def train_model(model, train_dl, val_dl, color_space, epochs, display_every=200,
             for loss_name, loss_meter in tmp_losses.items():
                 if loss_name not in val_iter_loss_meter_dict:
                     val_iter_loss_meter_dict[loss_name] = 0
-                val_iter_loss_meter_dict[loss_name] += loss_meter / val_data['known_channel'].size(0)
+                val_iter_loss_meter_dict[loss_name] += loss_meter
             val_batches += 1
+
+        for loss_name, loss_meter in val_iter_loss_meter_dict.items():
+            val_iter_loss_meter_dict[loss_name] = val_iter_loss_meter_dict[loss_name] / val_batches
 
         update_val_losses(val_loss_meter_dict, val_iter_loss_meter_dict, val_batches)
         val_epochs = list(range(1, starting_epoch + e + 2))
