@@ -61,7 +61,7 @@ def resize_np_array_image(img, height, width, grey_scale = False):
     return img
 
     
-def visualize(model, data, color_space, save=True, width = None, height = None):
+def visualize(model, data, color_space, save=True, width = None, height = None, model_name = None, set_num = 0):
     model.net_G.eval()
     with torch.no_grad():
         model.setup_input(data)
@@ -91,7 +91,13 @@ def visualize(model, data, color_space, save=True, width = None, height = None):
         ax.axis("off")
     plt.show()
     if save:
-        fig.savefig(f"colorization_{time.time()}_{color_space}.png")
+        file_name = "colorization_vis_"
+        if model_name is not None:
+            file_name += model_name
+        else:
+            file_name += color_space
+        file_name += "_" + str(set_num) + ".png"
+        fig.savefig(f"./visualizations/{file_name}")
 
 
 def plot_metrics(iterations, loss_meter_dict, title = "Training Loss", save_path = None):
