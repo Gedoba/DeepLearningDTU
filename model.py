@@ -1,7 +1,7 @@
 import torch
 from torch import nn, optim
 from loss import GANLoss
-
+import gc
 class UnetBlock(nn.Module):
     def __init__(self, nf, ni, submodule=None, input_c=None, dropout=False,
                  innermost=False, outermost=False):
@@ -112,24 +112,39 @@ class MainModel(nn.Module):
         for p in model.parameters():
             p.requires_grad = requires_grad
         
-    def setup_input(self, data):
-        self.known_channel = data['known_channel'].to(self.device)
-        self.unknown_channels = data['unknown_channels'].to(self.device)
+    def setup_input(self, data, device = None):
+        if device is None:
+            device = self.device
+        self.known_channel = data['known_channel'].to(device)
+        self.unknown_channels = data['unknown_channels'].to(device)
         
     def forward(self):
         self.fake_color = self.net_G(self.known_channel)
 
     def model_eval(self):
-        fake_image = torch.cat([self.known_channel, self.fake_color], dim=1)
-        fake_preds = self.net_D(fake_image.detach())
+        with torch.no_grad():
+            fake_color = self.net_G(self.known_channel)
+        fake_image = torch.cat([self.known_channel, fake_color], dim=1)
+        with torch.no_grad():
+            fake_preds = self.net_D(fake_image.detach())
+        del fake_image
+
+        loss_G_GAN = self.GANcriterion(fake_preds, True)
         loss_D_fake = self.GANcriterion(fake_preds, False)
+        del fake_preds 
+        loss_G_L1 = self.L1criterion(fake_color, self.unknown_channels) * self.lambda_L1
+        del fake_color
+        loss_G = loss_G_GAN + loss_G_L1
+
         real_image = torch.cat([self.known_channel, self.unknown_channels], dim=1)
         real_preds = self.net_D(real_image)
+        del real_image
         loss_D_real = self.GANcriterion(real_preds, True)
-        loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
-        loss_G_GAN = self.GANcriterion(fake_preds, True)
-        loss_G_L1 = self.L1criterion(self.fake_color, self.unknown_channels) * self.lambda_L1
-        loss_G = self.loss_G_GAN + self.loss_G_L1
+        del real_preds
+        loss_D = (loss_D_fake + loss_D_real) * 0.5
+
+        gc.collect()
+        torch.cuda.empty_cache()
 
         return {'loss_D_fake': loss_D_fake,
         'loss_D_real': loss_D_real,
