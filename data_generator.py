@@ -5,12 +5,13 @@ import cv2
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
+import io
 
 SIZE = 256
 
 
 class ColorizationDataset(Dataset):
-    def __init__(self, paths, split='train', color_space='Lab'):
+    def __init__(self, paths = None, split='train', color_space='Lab', bytes = None):
         if split == 'train':
             self.transforms = transforms.Compose([
                 transforms.Resize((SIZE, SIZE),  Image.BICUBIC),
@@ -22,9 +23,15 @@ class ColorizationDataset(Dataset):
         self.split = split
         self.size = SIZE
         self.paths = paths
+        self.bytes = bytes
+        self.sizes = []
     
     def __getitem__(self, idx):
-        img = Image.open(self.paths[idx]).convert("RGB")
+        if self.bytes is not None:
+            img = Image.open(io.BytesIO(self.bytes)).convert("RGB")
+        else:
+            img = Image.open(self.paths[idx]).convert("RGB")
+        self.sizes.append(img.size)
         img = self.transforms(img)
         img = np.array(img)
         return self.__transform_to_color_space(img) # Converting RGB to L*a*b
@@ -53,6 +60,8 @@ class ColorizationDataset(Dataset):
 
     
     def __len__(self):
+        if self.bytes is not None:
+            return 1
         return len(self.paths)
 
 def make_dataloaders(batch_size=5, n_workers=0, pin_memory=True, **kwargs): # A handy function to make our dataloaders
